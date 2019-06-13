@@ -5,7 +5,7 @@ import tarfile
 from six.moves import urllib
 import sys
 import numpy as np
-import cPickle
+import pickle
 import os
 import cv2
 
@@ -20,10 +20,10 @@ IMG_HEIGHT = 32
 IMG_DEPTH = 3
 NUM_CLASS = 10
 
-TRAIN_RANDOM_LABEL = False # Want to use random label for train data?
-VALI_RANDOM_LABEL = False # Want to use random label for validation?
+TRAIN_RANDOM_LABEL = False  # Want to use random label for train data?
+VALI_RANDOM_LABEL = False  # Want to use random label for validation?
 
-NUM_TRAIN_BATCH = 5 # How many batches of files you want to read in, from 0 to 5)
+NUM_TRAIN_BATCH = 5  # How many batches of files you want to read in, from 0 to 5)
 EPOCH_SIZE = 10000 * NUM_TRAIN_BATCH
 
 
@@ -45,7 +45,7 @@ def maybe_download_and_extract():
         filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath, _progress)
         print()
         statinfo = os.stat(filepath)
-        print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+        print(('Successfully downloaded', filename, statinfo.st_size, 'bytes.'))
         tarfile.open(filepath, 'r:gz').extractall(dest_directory)
 
 
@@ -60,7 +60,7 @@ def _read_one_batch(path, is_random_label):
     :return: image numpy arrays and label numpy arrays
     '''
     fo = open(path, 'rb')
-    dicts = cPickle.load(fo)
+    dicts = pickle.load(fo, encoding='latin1')
     fo.close()
 
     data = dicts['data']
@@ -72,7 +72,7 @@ def _read_one_batch(path, is_random_label):
     return data, label
 
 
-def read_in_all_images(address_list, shuffle=True, is_random_label = False):
+def read_in_all_images(address_list, shuffle=True, is_random_label=False):
     """
     This function reads all training or validation data, shuffles them if needed, and returns the
     images and the corresponding labels as numpy arrays
@@ -85,7 +85,7 @@ def read_in_all_images(address_list, shuffle=True, is_random_label = False):
     label = np.array([])
 
     for address in address_list:
-        print 'Reading images from ' + address
+        print('Reading images from ' + address)
         batch_data, batch_label = _read_one_batch(address, is_random_label)
         # Concatenate along axis 0 by default
         data = np.concatenate((data, batch_data))
@@ -95,12 +95,12 @@ def read_in_all_images(address_list, shuffle=True, is_random_label = False):
 
     # This reshape order is really important. Don't change
     # Reshape is correct. Double checked
-    data = data.reshape((num_data, IMG_HEIGHT * IMG_WIDTH, IMG_DEPTH), order='F')
+    data = data.reshape(
+        (num_data, IMG_HEIGHT * IMG_WIDTH, IMG_DEPTH), order='F')
     data = data.reshape((num_data, IMG_HEIGHT, IMG_WIDTH, IMG_DEPTH))
 
-
     if shuffle is True:
-        print 'Shuffling'
+        print('Shuffling')
         order = np.random.permutation(num_data)
         data = data[order, ...]
         label = label[order]
@@ -132,8 +132,9 @@ def whitening_image(image_np):
     for i in range(len(image_np)):
         mean = np.mean(image_np[i, ...])
         # Use adjusted standard deviation here, in case the std == 0.
-        std = np.max([np.std(image_np[i, ...]), 1.0/np.sqrt(IMG_HEIGHT * IMG_WIDTH * IMG_DEPTH)])
-        image_np[i,...] = (image_np[i, ...] - mean) / std
+        std = np.max([np.std(image_np[i, ...]), 1.0 /
+                      np.sqrt(IMG_HEIGHT * IMG_WIDTH * IMG_DEPTH)])
+        image_np[i, ...] = (image_np[i, ...] - mean) / std
     return image_np
 
 
@@ -151,9 +152,10 @@ def random_crop_and_flip(batch_data, padding_size):
         x_offset = np.random.randint(low=0, high=2 * padding_size, size=1)[0]
         y_offset = np.random.randint(low=0, high=2 * padding_size, size=1)[0]
         cropped_batch[i, ...] = batch_data[i, ...][x_offset:x_offset+IMG_HEIGHT,
-                      y_offset:y_offset+IMG_WIDTH, :]
+                                                   y_offset:y_offset+IMG_WIDTH, :]
 
-        cropped_batch[i, ...] = horizontal_flip(image=cropped_batch[i, ...], axis=1)
+        cropped_batch[i, ...] = horizontal_flip(
+            image=cropped_batch[i, ...], axis=1)
 
     return cropped_batch
 
@@ -168,11 +170,14 @@ def prepare_train_data(padding_size):
     path_list = []
     for i in range(1, NUM_TRAIN_BATCH+1):
         path_list.append(full_data_dir + str(i))
-    data, label = read_in_all_images(path_list, is_random_label=TRAIN_RANDOM_LABEL)
-    
-    pad_width = ((0, 0), (padding_size, padding_size), (padding_size, padding_size), (0, 0))
-    data = np.pad(data, pad_width=pad_width, mode='constant', constant_values=0)
-    
+    data, label = read_in_all_images(
+        path_list, is_random_label=TRAIN_RANDOM_LABEL)
+
+    pad_width = ((0, 0), (padding_size, padding_size),
+                 (padding_size, padding_size), (0, 0))
+    data = np.pad(data, pad_width=pad_width,
+                  mode='constant', constant_values=0)
+
     return data, label
 
 
@@ -182,9 +187,7 @@ def read_validation_data():
     :return: Validation image data as 4D numpy array. Validation labels as 1D numpy array
     '''
     validation_array, validation_labels = read_in_all_images([vali_dir],
-                                                       is_random_label=VALI_RANDOM_LABEL)
+                                                             is_random_label=VALI_RANDOM_LABEL)
     validation_array = whitening_image(validation_array)
 
     return validation_array, validation_labels
-
-
